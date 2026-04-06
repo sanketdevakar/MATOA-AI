@@ -18,8 +18,8 @@ tools:
        raw_payload, status, severity, threat_score)
       VALUES
       (@id, TIMESTAMP(@created_at), @alert_type, @sector,
-       @latitude, @longitude, @raw_payload, @status,
-       @severity, @threat_score)
+       CAST(@latitude AS FLOAT64), CAST(@longitude AS FLOAT64),
+       @raw_payload, @status, @severity, @threat_score)
     parameters:
       - name: id
         type: string
@@ -34,10 +34,10 @@ tools:
         type: string
         description: Sector name
       - name: latitude
-        type: float
+        type: string
         description: Latitude coordinate
       - name: longitude
-        type: float
+        type: string
         description: Longitude coordinate
       - name: raw_payload
         type: string
@@ -264,6 +264,61 @@ tools:
         type: string
         description: Reason for rejection (empty string if approved or executed)
 
+  # ── Sitrep Drafts ─────────────────────────────────────────────────────────
+
+  insert_sitrep_draft:
+    kind: bigquery-sql
+    source: sentinel-bigquery
+    description: Insert a situation report draft
+    statement: |
+      INSERT INTO `${GCP_PROJECT_ID}.sentinel_db.sitrep_drafts`
+        (id, alert_id, created_at, sector, threat_score,
+         summary, recommended_actions, notes_mcp_id)
+      VALUES
+        (@id, @alert_id, TIMESTAMP(@created_at), @sector,
+         @threat_score, @summary, @recommended_actions, @notes_mcp_id)
+    parameters:
+      - name: id
+        type: string
+        description: Sitrep draft ID
+      - name: alert_id
+        type: string
+        description: Associated alert ID
+      - name: created_at
+        type: string
+        description: Creation timestamp
+      - name: sector
+        type: string
+        description: Sector name
+      - name: threat_score
+        type: integer
+        description: Threat score
+      - name: summary
+        type: string
+        description: Sitrep summary text
+      - name: recommended_actions
+        type: string
+        description: Recommended actions text
+      - name: notes_mcp_id
+        type: string
+        description: Notes MCP ID, empty string initially
+
+  update_sitrep_notes_id:
+    kind: bigquery-sql
+    source: sentinel-bigquery
+    description: Update notes_mcp_id on a sitrep draft
+    statement: |
+      UPDATE `${GCP_PROJECT_ID}.sentinel_db.sitrep_drafts`
+      SET notes_mcp_id = @notes_mcp_id
+      WHERE id = @id
+    parameters:
+      - name: id
+        type: string
+        description: Sitrep draft ID
+      - name: notes_mcp_id
+        type: string
+        description: Notes MCP ID to set
+
   # ── Audit Log ──────────────────────────────────────────────────────────────────
 
   insert_audit_log:
@@ -327,3 +382,5 @@ toolsets:
     - update_pending_action_status
     - insert_audit_log
     - get_audit_trail
+    - insert_sitrep_draft
+    - update_sitrep_notes_id
