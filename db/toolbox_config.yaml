@@ -1,0 +1,329 @@
+sources:
+  sentinel-bigquery:
+    kind: bigquery
+    project: ${GCP_PROJECT_ID}
+    location: ${GCP_LOCATION}
+
+tools:
+
+  # ── Alerts ────────────────────────────────────────────────────────────────────
+
+  insert_alert:
+    kind: bigquery-sql
+    source: sentinel-bigquery
+    description: Insert a new alert into alerts table
+    statement: |
+      INSERT INTO `${GCP_PROJECT_ID}.sentinel_db.alerts`
+      (id, created_at, alert_type, sector, latitude, longitude,
+       raw_payload, status, severity, threat_score)
+      VALUES
+      (@id, TIMESTAMP(@created_at), @alert_type, @sector,
+       @latitude, @longitude, @raw_payload, @status,
+       @severity, @threat_score)
+    parameters:
+      - name: id
+        type: string
+        description: Unique alert ID
+      - name: created_at
+        type: string
+        description: Alert creation timestamp
+      - name: alert_type
+        type: string
+        description: Type of alert
+      - name: sector
+        type: string
+        description: Sector name
+      - name: latitude
+        type: float
+        description: Latitude coordinate
+      - name: longitude
+        type: float
+        description: Longitude coordinate
+      - name: raw_payload
+        type: string
+        description: Raw payload data
+      - name: status
+        type: string
+        description: Alert status
+      - name: severity
+        type: string
+        description: Severity level
+      - name: threat_score
+        type: integer
+        description: Threat score
+
+  get_alert_by_id:
+    kind: bigquery-sql
+    source: sentinel-bigquery
+    description: Fetch alert by ID
+    statement: |
+      SELECT * FROM `${GCP_PROJECT_ID}.sentinel_db.alerts`
+      WHERE id = @id
+      LIMIT 1
+    parameters:
+      - name: id
+        type: string
+        description: Alert ID
+
+  update_alert_status:
+    kind: bigquery-sql
+    source: sentinel-bigquery
+    description: Update alert status
+    statement: |
+      UPDATE `${GCP_PROJECT_ID}.sentinel_db.alerts`
+      SET status = @status
+      WHERE id = @id
+    parameters:
+      - name: id
+        type: string
+        description: Alert ID
+      - name: status
+        type: string
+        description: New status
+
+  update_alert_threat:
+    kind: bigquery-sql
+    source: sentinel-bigquery
+    description: Update threat score and severity
+    statement: |
+      UPDATE `${GCP_PROJECT_ID}.sentinel_db.alerts`
+      SET threat_score = @threat_score,
+          severity = @severity
+      WHERE id = @id
+    parameters:
+      - name: id
+        type: string
+        description: Alert ID
+      - name: threat_score
+        type: integer
+        description: Threat score
+      - name: severity
+        type: string
+        description: Severity level
+
+  list_alerts:
+    kind: bigquery-sql
+    source: sentinel-bigquery
+    description: List recent alerts ordered by creation time
+    statement: |
+      SELECT * FROM `${GCP_PROJECT_ID}.sentinel_db.alerts`
+      ORDER BY created_at DESC
+      LIMIT @limit
+    parameters:
+      - name: limit
+        type: integer
+        description: Maximum number of alerts to return
+
+  # ── Historical Incidents ───────────────────────────────────────────────────────
+
+  get_sector_history:
+    kind: bigquery-sql
+    source: sentinel-bigquery
+    description: Fetch recent incidents for a sector
+    statement: |
+      SELECT id, occurred_at, sector, incident_type, severity, description, resolved
+      FROM `${GCP_PROJECT_ID}.sentinel_db.historical_incidents`
+      WHERE sector = @sector
+        AND occurred_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL @days_back DAY)
+      ORDER BY occurred_at DESC
+      LIMIT @limit
+    parameters:
+      - name: sector
+        type: string
+        description: Sector name
+      - name: days_back
+        type: integer
+        description: Number of days to look back
+      - name: limit
+        type: integer
+        description: Maximum number of records
+
+  insert_historical_incident:
+    kind: bigquery-sql
+    source: sentinel-bigquery
+    description: Insert a historical incident record
+    statement: |
+      INSERT INTO `${GCP_PROJECT_ID}.sentinel_db.historical_incidents`
+      (id, occurred_at, sector, incident_type, severity, description, resolved)
+      VALUES
+      (@id, TIMESTAMP(@occurred_at), @sector, @incident_type,
+       @severity, @description, @resolved)
+    parameters:
+      - name: id
+        type: string
+        description: Incident ID
+      - name: occurred_at
+        type: string
+        description: Occurrence timestamp
+      - name: sector
+        type: string
+        description: Sector name
+      - name: incident_type
+        type: string
+        description: Incident type
+      - name: severity
+        type: string
+        description: Severity level
+      - name: description
+        type: string
+        description: Incident description
+      - name: resolved
+        type: boolean
+        description: Whether incident is resolved
+
+  # ── Pending Actions ────────────────────────────────────────────────────────────
+
+  insert_pending_action:
+    kind: bigquery-sql
+    source: sentinel-bigquery
+    description: Insert a new pending action awaiting commander approval
+    statement: |
+      INSERT INTO `${GCP_PROJECT_ID}.sentinel_db.pending_actions`
+      (id, alert_id, created_at, agent_name, action_type,
+       description, payload, status)
+      VALUES
+      (@id, @alert_id, TIMESTAMP(@created_at), @agent_name,
+       @action_type, @description, @payload, @status)
+    parameters:
+      - name: id
+        type: string
+        description: Action ID
+      - name: alert_id
+        type: string
+        description: Associated alert ID
+      - name: created_at
+        type: string
+        description: Creation timestamp
+      - name: agent_name
+        type: string
+        description: Agent that created the action
+      - name: action_type
+        type: string
+        description: Type of action
+      - name: description
+        type: string
+        description: Human-readable description
+      - name: payload
+        type: string
+        description: JSON-encoded action payload
+      - name: status
+        type: string
+        description: Initial status (pending)
+
+  get_pending_action_by_id:
+    kind: bigquery-sql
+    source: sentinel-bigquery
+    description: Fetch a single pending action by ID
+    statement: |
+      SELECT * FROM `${GCP_PROJECT_ID}.sentinel_db.pending_actions`
+      WHERE id = @id
+      LIMIT 1
+    parameters:
+      - name: id
+        type: string
+        description: Action ID
+
+  list_pending_actions:
+    kind: bigquery-sql
+    source: sentinel-bigquery
+    description: List pending actions filtered by status
+    statement: |
+      SELECT * FROM `${GCP_PROJECT_ID}.sentinel_db.pending_actions`
+      WHERE status = @status
+      ORDER BY created_at DESC
+    parameters:
+      - name: status
+        type: string
+        description: Status to filter by (pending, approved, rejected, executed, failed)
+
+  update_pending_action_status:
+    kind: bigquery-sql
+    source: sentinel-bigquery
+    description: Update status and decision metadata on a pending action
+    statement: |
+      UPDATE `${GCP_PROJECT_ID}.sentinel_db.pending_actions`
+      SET status = @status,
+          decided_at = TIMESTAMP(@decided_at),
+          decided_by = @decided_by,
+          reject_reason = @reject_reason
+      WHERE id = @id
+    parameters:
+      - name: id
+        type: string
+        description: Action ID
+      - name: status
+        type: string
+        description: New status (approved, rejected, executed, failed)
+      - name: decided_at
+        type: string
+        description: Decision timestamp
+      - name: decided_by
+        type: string
+        description: Who made the decision
+      - name: reject_reason
+        type: string
+        description: Reason for rejection (empty string if approved or executed)
+
+  # ── Audit Log ──────────────────────────────────────────────────────────────────
+
+  insert_audit_log:
+    kind: bigquery-sql
+    source: sentinel-bigquery
+    description: Insert an audit log entry
+    statement: |
+      INSERT INTO `${GCP_PROJECT_ID}.sentinel_db.audit_logs`
+      (id, alert_id, timestamp, actor, action, detail, success)
+      VALUES
+      (@id, @alert_id, TIMESTAMP(@timestamp),
+       @actor, @action, @detail, @success)
+    parameters:
+      - name: id
+        type: string
+        description: Log ID
+      - name: alert_id
+        type: string
+        description: Associated alert ID (empty string if not alert-specific)
+      - name: timestamp
+        type: string
+        description: Event timestamp
+      - name: actor
+        type: string
+        description: Actor name (agent or user)
+      - name: action
+        type: string
+        description: Action performed
+      - name: detail
+        type: string
+        description: Additional detail
+      - name: success
+        type: boolean
+        description: Whether action succeeded
+
+  get_audit_trail:
+    kind: bigquery-sql
+    source: sentinel-bigquery
+    description: Fetch full audit trail for an alert ordered by time
+    statement: |
+      SELECT * FROM `${GCP_PROJECT_ID}.sentinel_db.audit_logs`
+      WHERE alert_id = @alert_id
+      ORDER BY timestamp ASC
+    parameters:
+      - name: alert_id
+        type: string
+        description: Alert ID to retrieve audit trail for
+
+toolsets:
+  sentinel-all:
+    - insert_alert
+    - get_alert_by_id
+    - update_alert_status
+    - update_alert_threat
+    - list_alerts
+    - get_sector_history
+    - insert_historical_incident
+    - insert_pending_action
+    - get_pending_action_by_id
+    - list_pending_actions
+    - update_pending_action_status
+    - insert_audit_log
+    - get_audit_trail
