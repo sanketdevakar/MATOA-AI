@@ -367,6 +367,43 @@ tools:
         type: string
         description: Alert ID to retrieve audit trail for
 
+  get_all_audit_logs:
+    kind: bigquery-sql
+    source: sentinel-bigquery
+    description: Fetch all audit logs ordered by timestamp descending
+    statement: |
+      SELECT * FROM `${GCP_PROJECT_ID}.sentinel_db.audit_logs`
+      ORDER BY timestamp DESC
+      LIMIT @limit
+    parameters:
+      - name: limit
+        type: integer
+        description: Maximum number of audit log entries to return
+
+  # ── Dashboard Stats ────────────────────────────────────────────────────────────
+
+  count_alerts_since:
+    kind: bigquery-sql
+    source: sentinel-bigquery
+    description: Count alerts created since a specific date
+    statement: |
+      SELECT COUNT(*) as count
+      FROM `${GCP_PROJECT_ID}.sentinel_db.alerts`
+      WHERE DATE(created_at) >= DATE(@since_date)
+    parameters:
+      - name: since_date
+        type: string
+        description: Date string in YYYY-MM-DD format
+
+  get_latest_scan_timestamp:
+    kind: bigquery-sql
+    source: sentinel-bigquery
+    description: Get the most recent scan timestamp across all sectors
+    statement: |
+      SELECT MAX(scanned_at) as latest_scan
+      FROM `${GCP_PROJECT_ID}.sentinel_db.vision_scans`
+    parameters: []
+
   # ── Vision Scans ──────────────────────────────────────────────────────────
   insert_vision_scan:
     kind: bigquery-sql

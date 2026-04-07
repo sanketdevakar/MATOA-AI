@@ -148,6 +148,7 @@ def get_alert_status(alert_id: str):
 def list_pending(_=Depends(verify_commander)):
     from db import bigquery_client as bq
     actions = bq.list_pending_actions(status="pending")
+    log.info("Raw pending actions", sample=actions[0] if actions else {})
     return {"count": len(actions), "actions": [
         {"id": a["id"], "alert_id": a["alert_id"], "agent": a["agent_name"],
          "action_type": a["action_type"], "description": a["description"],

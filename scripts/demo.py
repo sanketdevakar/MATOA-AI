@@ -79,7 +79,7 @@ def spin(label: str, seconds: float = 1.2):
 
 def show_health():
     section("0  —  System health check", "dim white")
-    r = httpx.get(f"{BASE}/", timeout=10)
+    r = httpx.get(f"{BASE}/", timeout=None)
     d = r.json()
 
     grid = Table.grid(padding=(0, 2))
@@ -101,7 +101,7 @@ def show_vision_scan():
     spin("Fetching imagery from Mapbox / Google / OSM ...", 1.5)
     spin("Sending image to Claude vision API ...", 2.0)
 
-    r = httpx.post(f"{BASE}/api/v1/demo/vision-scan", timeout=60)
+    r = httpx.post(f"{BASE}/api/v1/demo/vision-scan", timeout=None)
     r.raise_for_status()
     vis = r.json()["result"]
 
@@ -156,7 +156,7 @@ def show_alert_pipeline():
 
     spin("Sending alert to event bus (POST /api/v1/alert) ...", 0.8)
 
-    r = httpx.post(f"{BASE}/api/v1/demo/trigger", timeout=60)
+    r = httpx.post(f"{BASE}/api/v1/demo/trigger", timeout=None)
     r.raise_for_status()
     d = r.json()
 
@@ -216,7 +216,7 @@ def show_hitl(alert_id: str):
     section("4  —  HITL gate — commander reviews pending actions", "yellow")
 
     time.sleep(0.5)
-    r = httpx.get(f"{BASE}/api/v1/hitl/pending", headers=HDR, timeout=10)
+    r = httpx.get(f"{BASE}/api/v1/hitl/pending", headers=HDR, timeout=None)
     r.raise_for_status()
     pending = r.json()
 
@@ -256,7 +256,7 @@ def show_approval(actions: list):
     console.print(f"  [dim]Approving:[/dim] [bold]{first['description'][:60]}[/bold]")
     spin("Executing Calendar MCP call ...", 1.2)
 
-    r = httpx.put(f"{BASE}/api/v1/hitl/approve/{first['id']}", headers=HDR, timeout=20)
+    r = httpx.put(f"{BASE}/api/v1/hitl/approve/{first['id']}", headers=HDR, timeout=None)
     r.raise_for_status()
     res = r.json()
 
@@ -275,7 +275,7 @@ def show_approval(actions: list):
         r2 = httpx.put(
             f"{BASE}/api/v1/hitl/reject/{second['id']}",
             json={"reason": "Alternate unit handling. Stand down."},
-            headers=HDR, timeout=10,
+            headers=HDR, timeout=None,
         )
         if r2.status_code == 200:
             console.print(f"  [red]Rejected:[/red] {second['description'][:50]}")
@@ -284,7 +284,7 @@ def show_approval(actions: list):
 
 def show_scan_history():
     section("6  —  BigQuery scan history — SECTOR-7", "blue")
-    r = httpx.get(f"{BASE}/api/v1/scan/history/SECTOR-7?limit=5", timeout=10)
+    r = httpx.get(f"{BASE}/api/v1/scan/history/SECTOR-7?limit=5", timeout=None)
     r.raise_for_status()
     hist = r.json()
 
@@ -309,7 +309,7 @@ def show_scan_history():
 
 def show_audit(alert_id: str):
     section("7  —  Full audit trail (BigQuery audit_logs)", "dim white")
-    r = httpx.get(f"{BASE}/api/v1/audit/{alert_id}", headers=HDR, timeout=10)
+    r = httpx.get(f"{BASE}/api/v1/audit/{alert_id}", headers=HDR, timeout=None)
     r.raise_for_status()
     events = r.json().get("events", [])
 

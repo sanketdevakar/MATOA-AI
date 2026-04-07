@@ -41,28 +41,43 @@ def close_client():
         _client.close()
         _client = None
 
+def reset_client():
+    """Force-reset the Toolbox client — call after closing an event loop."""
+    global _client
+    if _client is not None:
+        try:
+            _client.close()
+        except Exception:
+            pass
+    _client = None
+
 
 def _call_tool(tool_name: str, **kwargs) -> Any:
     """Load and invoke a Toolbox tool synchronously."""
-    try:
-        tool = _get_client().load_tool(tool_name)
-        result = tool(**kwargs)
+    for attempt in range(2):  # retry once on session errors
+        try:
+            tool = _get_client().load_tool(tool_name)
+            result = tool(**kwargs)
 
-        # Toolbox returns results as a raw JSON string — parse it
-        if isinstance(result, str):
-            parsed = json.loads(result)
-            # Always return a list for consistency
-            if isinstance(parsed, list):
-                return parsed
-            else:
-                return [parsed]
+            if isinstance(result, str):
+                parsed = json.loads(result)
+                return parsed if isinstance(parsed, list) else [parsed]
 
-        return result
-    except Exception as exc:
-        raise RuntimeError(
-            f"Tool '{tool_name}' failed: {exc}. "
-            f"Is toolbox running at {TOOLBOX_URL}?"
-        ) from exc
+            return result
+
+        except RuntimeError as exc:
+            if "Session is closed" in str(exc) and attempt == 0:
+                reset_client()  # force fresh client, retry once
+                continue
+            raise RuntimeError(
+                f"Tool '{tool_name}' failed: {exc}. "
+                f"Is toolbox running at {TOOLBOX_URL}?"
+            ) from exc
+        except Exception as exc:
+            raise RuntimeError(
+                f"Tool '{tool_name}' failed: {exc}. "
+                f"Is toolbox running at {TOOLBOX_URL}?"
+            ) from exc
 
 
 def _now() -> str:
@@ -362,4 +377,75 @@ def get_vision_scan(scan_id: str) -> dict:
 
 def get_sector_scan_history(sector: str, limit: int = 10) -> list:
     result = _call_tool("get_sector_scan_history", sector=sector, limit=limit)
-    return result if isinstance(result, list) else []
+    if not isinstance(result, list):
+        return []
+    # Handle case where result might be list of JSON strings or dicts
+    parsed_result = []
+    for item in result:
+        if isinstance(item, str):
+            try:
+                parsed_result.append(json.loads(item))
+            except:
+                parsed_result.append(item)  # Keep as string if not JSON
+        else:
+            parsed_result.append(item)
+    return parsed_result
+
+
+def get_alerts_count_since(date_str: str) -> int:
+    """Count alerts created since date_str (YYYY-MM-DD)"""
+    result = _call_tool("count_alerts_since", since_date=date_str)
+    if isinstance(result, list) and result:
+        item = result[0]
+        if isinstance(item, dict):
+            return item.get("count", 0)
+        elif isinstance(item, str):
+            try:
+                parsed = json.loads(item)
+                return parsed.get("count", 0) if isinstance(parsed, dict) else 0
+            except:
+                return 0
+        else:
+            return int(item) if isinstance(item, (int, str)) else 0
+    elif isinstance(result, (int, str)):
+        return int(result)
+    return 0
+
+
+def get_latest_scan_timestamp() -> str:
+    """Get the most recent scan timestamp across all sectors"""
+    result = _call_tool("get_latest_scan_timestamp")
+    if isinstance(result, list) and result:
+        item = result[0]
+        if isinstance(item, dict):
+            return item.get("latest_scan", "")
+        elif isinstance(item, str):
+            try:
+                parsed = json.loads(item)
+                return parsed.get("latest_scan", "") if isinstance(parsed, dict) else ""
+            except:
+                return item  # Return the string as is
+        else:
+            return str(item)
+    elif isinstance(result, str):
+        return result
+    return ""
+
+
+def get_all_audit_logs(limit: int = 100) -> list:
+    """Get all audit logs, ordered by timestamp desc, limited"""
+    result = _call_tool("get_all_audit_logs", limit=limit)
+    if not isinstance(result, list):
+        return []
+    # Handle case where result might be list of JSON strings or dicts
+    parsed_result = []
+    for item in result:
+        if isinstance(item, str):
+            try:
+                parsed_result.append(json.loads(item))
+            except:
+                parsed_result.append(item)  # Keep as string if not JSON
+        else:
+            parsed_result.append(item)
+    return parsed_result
+

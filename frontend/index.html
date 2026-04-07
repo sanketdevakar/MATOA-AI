@@ -687,7 +687,7 @@ async function loadPending() {
             <div class="hitl-agent">${a.agent.toUpperCase()} — ${a.action_type.toUpperCase()}</div>
             <div class="hitl-desc">${a.description}</div>
             <div style="font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:6px">
-              ID: ${a.id.slice(0,20)}... &nbsp;|&nbsp; ${new Date(a.created_at).toLocaleTimeString()}
+              ID: ${a.id}... &nbsp;|&nbsp; ${new Date(a.created_at).toLocaleString()}
             </div>
           </div>
           <div class="hitl-actions">
@@ -700,7 +700,7 @@ async function loadPending() {
 }
 
 async function approveAction(id) {
-  log(`Approving action ${id.slice(0,12)}...`, 'warn');
+  log(`Approving action ${id}...`, 'warn');
   try {
     await apiFetch(`/api/v1/hitl/approve/${id}`, { method: 'PUT' });
     document.getElementById(`hitl-${id}`)?.remove();
@@ -711,7 +711,7 @@ async function approveAction(id) {
 }
 
 async function rejectAction(id) {
-  log(`Rejecting action ${id.slice(0,12)}...`, 'error');
+  log(`Rejecting action ${id}...`, 'error');
   try {
     await apiFetch(`/api/v1/hitl/reject/${id}`, {
       method: 'PUT',

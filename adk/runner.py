@@ -25,6 +25,8 @@ from adk.agents import sentinel_pipeline
 from db import bigquery_client as bq
 from config import get_settings
 from utils.logger import get_logger
+import logging
+logging.getLogger("asyncio").setLevel(logging.CRITICAL)
 
 settings = get_settings()
 log      = get_logger("adk_runner")
@@ -106,7 +108,6 @@ async def run_pipeline_async(alert: dict) -> dict:
                 "timestamp":  datetime.utcnow().isoformat(),
             })
             author = getattr(event, "author", "")
-            print(f"EVENT: author={author} type={type(event).__name__}")
             if author and author != "sentinel_command_agent":
                 content = getattr(event, "content", None)
                 text = ""
@@ -134,7 +135,13 @@ async def run_pipeline_async(alert: dict) -> dict:
             detail=str(e), alert_id=alert_id, success=False,
         )
 
-    threat_score  = final_state.get("threat_score", 0)
+    try:
+        updated_alert = bq.get_alert(alert_id)
+        threat_score  = updated_alert.get("threat_score", 0)
+        severity      = updated_alert.get("severity", "unknown")
+    except Exception:
+        threat_score  = final_state.get("threat_score", 0)
+        severity      = final_state.get("severity", "unknown")
     pending_actions = bq.list_pending_actions(status="pending")
     pending_count = sum(1 for a in pending_actions if a.get("alert_id") == alert_id)
 
@@ -158,7 +165,7 @@ async def run_pipeline_async(alert: dict) -> dict:
         "alert_id":       alert_id,
         "sector":         alert["sector"],
         "threat_score":   threat_score,
-        "severity":       final_state.get("severity", "unknown"),
+        "severity":       severity,
         "status":         status,
         "message":        message,
         "pipeline_steps": pipeline_steps,
@@ -181,23 +188,25 @@ async def _cleanup():
 
 
 def _run_in_new_loop(alert: dict) -> dict:
-    """Run pipeline in a completely fresh event loop."""
-    import gc
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
         return loop.run_until_complete(run_pipeline_async(alert))
     finally:
         try:
-            loop.run_until_complete(_cleanup())
-        except Exception:
-            pass
-        try:
-            loop.run_until_complete(asyncio.sleep(0.5))  # let connections drain
+            pending = asyncio.all_tasks(loop)
+            if pending:
+                loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+            loop.run_until_complete(loop.shutdown_asyncgens())
         except Exception:
             pass
         loop.close()
         asyncio.set_event_loop(None)
+        
+        # ✅ Reset Toolbox client — its aiohttp session is tied to the
+        # now-closed event loop and will fail for all subsequent requests
+        from db import bigquery_client as bq
+        bq.reset_client()
 
 
 def run_pipeline(alert: dict) -> dict:
