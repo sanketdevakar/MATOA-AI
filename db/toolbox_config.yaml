@@ -367,6 +367,181 @@ tools:
         type: string
         description: Alert ID to retrieve audit trail for
 
+  # ── Vision Scans ──────────────────────────────────────────────────────────
+  insert_vision_scan:
+    kind: bigquery-sql
+    source: sentinel-bigquery
+    description: Insert a vision scan result
+    statement: |
+      INSERT INTO `${GCP_PROJECT_ID}.sentinel_db.vision_scans`
+        (id, alert_id, sector, scanned_at, image_source,
+         image_lat, image_lon, zoom_level, anomalies_detected,
+         anomaly_count, threat_indicators, overall_assessment,
+         recommended_action, image_quality, annotated_image_uri)
+      VALUES
+        (@id, @alert_id, @sector, TIMESTAMP(@scanned_at),
+         @image_source, CAST(@image_lat AS FLOAT64), CAST(@image_lon AS FLOAT64),
+         @zoom_level, @anomalies_detected, @anomaly_count, @threat_indicators,
+         @overall_assessment, @recommended_action,
+         @image_quality, @annotated_image_uri)
+    parameters:
+      - name: id
+        type: string
+        description: Unique vision scan ID
+      - name: alert_id
+        type: string
+        description: Associated alert ID, empty string if standalone
+      - name: sector
+        type: string
+        description: Sector name that was scanned
+      - name: scanned_at
+        type: string
+        description: Scan timestamp in ISO format
+      - name: image_source
+        type: string
+        description: Source of image e.g. mapbox_satellite, google_maps, osm_tiles
+      - name: image_lat
+        type: string
+        description: Latitude of image center as string
+      - name: image_lon
+        type: string
+        description: Longitude of image center as string
+      - name: zoom_level
+        type: integer
+        description: Zoom level used for image fetch
+      - name: anomalies_detected
+        type: boolean
+        description: Whether anomalies were detected
+      - name: anomaly_count
+        type: integer
+        description: Number of anomalies detected
+      - name: threat_indicators
+        type: string
+        description: JSON-encoded list of threat indicator objects
+      - name: overall_assessment
+        type: string
+        description: Overall assessment text from vision agent
+      - name: recommended_action
+        type: string
+        description: Recommended action e.g. none, patrol_verification, immediate_alert
+      - name: image_quality
+        type: string
+        description: Image quality rating e.g. good, partial, poor
+      - name: annotated_image_uri
+        type: string
+        description: GCS URI of annotated image, empty string if unavailable
+
+  get_vision_scan_by_id:
+    kind: bigquery-sql
+    source: sentinel-bigquery
+    description: Fetch a vision scan by ID
+    statement: |
+      SELECT id, alert_id, sector, scanned_at, image_source,
+             image_lat, image_lon, zoom_level, anomalies_detected,
+             anomaly_count, threat_indicators, overall_assessment,
+             recommended_action, image_quality, annotated_image_uri
+      FROM `${GCP_PROJECT_ID}.sentinel_db.vision_scans`
+      WHERE id = @id
+      LIMIT 1
+    parameters:
+      - name: id
+        type: string
+        description: Vision scan ID to fetch
+
+  get_sector_scan_history:
+    kind: bigquery-sql
+    source: sentinel-bigquery
+    description: Fetch recent vision scans for a sector
+    statement: |
+      SELECT id, sector, scanned_at, image_source, image_lat, image_lon,
+             zoom_level, anomalies_detected, anomaly_count,
+             overall_assessment, recommended_action, image_quality,
+             threat_indicators
+      FROM `${GCP_PROJECT_ID}.sentinel_db.vision_scans`
+      WHERE sector = @sector
+      ORDER BY scanned_at DESC
+      LIMIT @limit
+    parameters:
+      - name: sector
+        type: string
+        description: Sector name to fetch scan history for
+      - name: limit
+        type: integer
+        description: Maximum number of scan records to return
+
+  # ── Google Maps API Usage Log ─────────────────────────────────────────────
+  log_maps_api_call:
+    kind: bigquery-sql
+    source: sentinel-bigquery
+    description: Log a Google Maps API call to the audit trail
+    statement: |
+      INSERT INTO `${GCP_PROJECT_ID}.sentinel_db.audit_logs`
+        (id, alert_id, timestamp, actor, action, detail, success)
+      VALUES
+        (@id, @alert_id, TIMESTAMP(@called_at),
+         'google_maps_mcp', @api_name,
+         CONCAT('lat=', @lat, ' lon=', @lon),
+         @success)
+    parameters:
+      - name: id
+        type: string
+        description: Unique log entry ID
+      - name: alert_id
+        type: string
+        description: Associated alert ID, empty string if not alert-specific
+      - name: called_at
+        type: string
+        description: Timestamp of the API call in ISO format
+      - name: api_name
+        type: string
+        description: Name of the Google Maps API called
+      - name: lat
+        type: string
+        description: Latitude used in the API call as string
+      - name: lon
+        type: string
+        description: Longitude used in the API call as string
+      - name: success
+        type: boolean
+        description: Whether the API call succeeded
+  # ── Patrol Logs ──────────────────────────────────────────────────────────────
+  insert_patrol_log:
+    kind: bigquery-sql
+    source: sentinel-bigquery
+    description: Insert a patrol log entry after a patrol action is executed
+    statement: |
+      INSERT INTO `${GCP_PROJECT_ID}.sentinel_db.patrol_logs`
+        (id, alert_id, sector, patrol_start, patrol_end,
+         unit_assigned, route_notes, calendar_event_id, created_at)
+      VALUES
+        (@id, @alert_id, @sector, TIMESTAMP(@patrol_start),
+         TIMESTAMP(@patrol_end), @unit_assigned, @route_notes,
+         @calendar_event_id, TIMESTAMP(@created_at))
+    parameters:
+      - name: id
+        type: string
+        description: Unique patrol log ID
+      - name: alert_id
+        type: string
+        description: Associated alert ID
+      - name: sector
+        type: string
+        description: Sector name where patrol is deployed
+      - name: patrol_start
+        type: string
+        description: Patrol start time in ISO format
+      - name: patrol_end
+        type: string
+        description: Patrol end time in ISO format
+      - name: unit_assigned
+        type: string
+        description: Military unit assigned to the patrol
+      - name: route_notes
+        type: string
+        description: Patrol route and instructions
+      - name: calendar_event_id
+        type: string
+        description: Google Calendar event ID, empty string if calendar unavailable
 toolsets:
   sentinel-all:
     - insert_alert
@@ -384,3 +559,8 @@ toolsets:
     - get_audit_trail
     - insert_sitrep_draft
     - update_sitrep_notes_id
+    - insert_vision_scan
+    - get_vision_scan_by_id
+    - get_sector_scan_history
+    - log_maps_api_call
+    - insert_patrol_log

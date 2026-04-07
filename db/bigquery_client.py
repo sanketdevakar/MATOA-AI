@@ -250,8 +250,8 @@ def insert_patrol_log(
     _call_tool("insert_patrol_log",
         id=log_id,
         alert_id=alert_id,
-        created_at=_now(),
         sector=sector,
+        created_at=_now(),
         patrol_start=patrol_start,
         patrol_end=patrol_end,
         unit_assigned=unit_assigned,
@@ -332,7 +332,6 @@ def insert_vision_scan(
     annotated_image_uri: str = None,
     alert_id: str = None,
 ) -> str:
-    # FIX: moved json import to top of file.
     scan_id = _new_id()
     _call_tool("insert_vision_scan",
         id=scan_id,
@@ -340,8 +339,8 @@ def insert_vision_scan(
         sector=sector,
         scanned_at=scanned_at,
         image_source=image_source,
-        image_lat=image_lat,
-        image_lon=image_lon,
+        image_lat=str(image_lat),   # ← convert to string
+        image_lon=str(image_lon),   # ← convert to string
         zoom_level=zoom_level,
         anomalies_detected=anomalies_detected,
         anomaly_count=anomaly_count,
