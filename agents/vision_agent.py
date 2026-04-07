@@ -13,8 +13,8 @@ from google import genai
 from google.genai import types
 
 from db import bigquery_client as bq
-from mcp.geo_tool import fetch_sector_image, overlay_waypoints
-from mcp.gcs_tool import upload_image
+from mcp_tools.geo_tool import fetch_sector_image, overlay_waypoints
+from mcp_tools.gcs_tool import upload_image
 from config import get_settings
 from utils.logger import get_logger
 

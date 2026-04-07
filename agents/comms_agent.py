@@ -4,8 +4,8 @@ Fix 7: Structured logging replaces all print() calls.
 """
 import json
 from db import bigquery_client as bq
-from mcp.notes_tool import write_note
-from mcp.tasks_tool import create_task
+from mcp_tools.notes_tool import write_note
+from mcp_tools.tasks_tool import create_task
 from config import get_settings
 from utils.logger import get_logger
 from google import genai

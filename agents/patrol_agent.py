@@ -5,7 +5,7 @@ Fix 7: Structured logging replaces all print() calls.
 import json
 from datetime import datetime, timedelta, timezone
 from db import bigquery_client as bq
-from mcp.calendar_tool import create_patrol_event
+from mcp_tools.calendar_tool import create_patrol_event
 from config import get_settings
 from utils.logger import get_logger
 from google import genai
