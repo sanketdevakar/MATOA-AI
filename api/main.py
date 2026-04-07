@@ -11,7 +11,8 @@ from typing import Optional
 from fastapi import FastAPI, Depends, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-
+import os
+from fastapi.responses import FileResponse
 from config import get_settings
 from agents import patrol_agent, comms_agent
 from adk.runner import run_pipeline
@@ -267,6 +268,18 @@ def list_sectors():
          "map_url": f"https://www.openstreetmap.org/?mlat={v.split(',')[0]}&mlon={v.split(',')[1]}&zoom=14"}
         for s, v in coords_map.items()]}
 
+# ────────────────────Dashboard ──────────────────────────────────────────────
+
+@app.get("/dashboard", include_in_schema=False)
+def serve_dashboard():
+    """Serve the SENTINEL frontend dashboard."""
+    frontend_path = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "frontend",
+        "index.html"
+    )
+    return FileResponse(os.path.abspath(frontend_path))
 
 # ── Demo + Health ──────────────────────────────────────────────────────────────
 

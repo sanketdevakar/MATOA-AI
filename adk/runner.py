@@ -15,7 +15,8 @@ import asyncio
 import concurrent.futures
 import json
 from datetime import datetime
-
+import aiohttp
+import gc
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai.types import Content, Part
@@ -166,13 +167,35 @@ async def run_pipeline_async(alert: dict) -> dict:
     }
 
 
+async def _cleanup():
+    """Close all pending aiohttp sessions gracefully."""
+    
+    # Give pending tasks time to finish
+    tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+    if tasks:
+        await asyncio.gather(*tasks, return_exceptions=True)
+    # Close any open aiohttp connectors
+    for obj in gc.get_objects():
+        if isinstance(obj, aiohttp.ClientSession) and not obj.closed:
+            await obj.close()
+
+
 def _run_in_new_loop(alert: dict) -> dict:
-    """Run pipeline in a completely fresh event loop — safe for any calling context."""
+    """Run pipeline in a completely fresh event loop."""
+    import gc
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
         return loop.run_until_complete(run_pipeline_async(alert))
     finally:
+        try:
+            loop.run_until_complete(_cleanup())
+        except Exception:
+            pass
+        try:
+            loop.run_until_complete(asyncio.sleep(0.5))  # let connections drain
+        except Exception:
+            pass
         loop.close()
         asyncio.set_event_loop(None)
 

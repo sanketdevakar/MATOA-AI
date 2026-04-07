@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SENTINEL — Indian Army Surveillance</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&family=Orbitron:wght@400;700;900&display=swap');
+
+:root {
+  --bg:       #050a0f;
+  --bg2:      #0a1520;
+  --bg3:      #0f1e2d;
+  --border:   #1a3a50;
+  --border2:  #0d4a6b;
+  --green:    #00ff88;
+  --green2:   #00cc66;
+  --amber:    #ffaa00;
+  --red:      #ff3333;
+  --blue:     #00aaff;
+  --dim:      #4a7a96;
+  --text:     #c8e8f8;
+  --textdim:  #5a8aaa;
+  --mono:     'Share Tech Mono', monospace;
+  --head:     'Orbitron', sans-serif;
+  --body:     'Rajdhani', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--body);
+  font-size: 14px;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* scanline overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,20,40,.15) 2px, rgba(0,20,40,.15) 4px);
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ── Header ── */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--border2);
+  background: var(--bg2);
+  position: sticky; top: 0; z-index: 100;
+}
+.logo {
+  font-family: var(--head);
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--green);
+  letter-spacing: 4px;
+  text-shadow: 0 0 20px rgba(0,255,136,.4);
+}
+.logo span { color: var(--dim); font-size: 11px; display: block; letter-spacing: 2px; font-weight: 400; margin-top: -2px; }
+.sys-status { display: flex; align-items: center; gap: 20px; }
+.status-pill {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 11px; color: var(--textdim);
+}
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+.dot.amber { background: var(--amber); }
+.dot.red { background: var(--red); }
+@keyframes pulse { 0%,100%{opacity:1;box-shadow:0 0 4px currentColor} 50%{opacity:.5;box-shadow:none} }
+.time-display { font-family: var(--mono); font-size: 13px; color: var(--green); }
+
+/* ── Layout ── */
+.layout { display: grid; grid-template-columns: 260px 1fr 320px; gap: 0; height: calc(100vh - 53px); }
+
+/* ── Panels ── */
+.panel {
+  border-right: 1px solid var(--border);
+  background: var(--bg);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.panel:last-child { border-right: none; border-left: 1px solid var(--border); }
+.panel-title {
+  font-family: var(--head);
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: var(--dim);
+  padding: 12px 16px 8px;
+  border-bottom: 1px solid var(--border);
+  text-transform: uppercase;
+  display: flex; align-items: center; gap: 8px;
+}
+.panel-title::before { content:''; width:3px; height:14px; background:var(--green); border-radius:2px; display:inline-block; }
+
+/* ── Sector Grid ── */
+.sector-btn {
+  width: 100%; text-align: left; background: none; border: none;
+  padding: 10px 16px; cursor: pointer;
+  border-bottom: 1px solid rgba(26,58,80,.5);
+  display: flex; align-items: center; justify-content: space-between;
+  transition: background .15s;
+  font-family: var(--body);
+}
+.sector-btn:hover { background: var(--bg2); }
+.sector-btn.active { background: rgba(0,100,60,.15); border-left: 3px solid var(--green); }
+.sector-name { font-size: 14px; font-weight: 600; color: var(--text); }
+.sector-coords { font-family: var(--mono); font-size: 10px; color: var(--textdim); margin-top: 2px; }
+.sector-badge {
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  padding: 2px 7px; border-radius: 3px;
+}
+.badge-clear { background: rgba(0,255,136,.1); color: var(--green); border: 1px solid rgba(0,255,136,.3); }
+.badge-alert { background: rgba(255,51,51,.15); color: var(--red); border: 1px solid rgba(255,51,51,.3); animation: blink .8s infinite; }
+.badge-warn  { background: rgba(255,170,0,.1); color: var(--amber); border: 1px solid rgba(255,170,0,.3); }
+@keyframes blink { 50%{opacity:.4} }
+
+/* ── Main Panel ── */
+.main-panel { overflow-y: auto; background: var(--bg); }
+
+/* Tab bar */
+.tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--bg2); }
+.tab {
+  padding: 10px 20px; font-family: var(--head); font-size: 9px; letter-spacing: 2px;
+  color: var(--dim); cursor: pointer; border: none; background: none;
+  border-bottom: 2px solid transparent; transition: all .2s;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--green); border-bottom-color: var(--green); }
+
+/* Tab content */
+.tab-content { display: none; padding: 20px; }
+.tab-content.active { display: block; }
+
+/* Trigger section */
+.trigger-row { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+.btn {
+  font-family: var(--head); font-size: 9px; letter-spacing: 2px;
+  padding: 10px 20px; border: 1px solid; border-radius: 3px;
+  cursor: pointer; transition: all .2s; text-transform: uppercase;
+}
+.btn-green { color: var(--green); border-color: var(--green); background: rgba(0,255,136,.05); }
+.btn-green:hover { background: rgba(0,255,136,.15); box-shadow: 0 0 12px rgba(0,255,136,.2); }
+.btn-amber { color: var(--amber); border-color: var(--amber); background: rgba(255,170,0,.05); }
+.btn-amber:hover { background: rgba(255,170,0,.15); }
+.btn-red { color: var(--red); border-color: var(--red); background: rgba(255,51,51,.05); }
+.btn-red:hover { background: rgba(255,51,51,.15); }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+
+/* Pipeline trace */
+.pipeline-wrap { margin-bottom: 20px; }
+.pipeline-step {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 14px; margin-bottom: 6px;
+  border: 1px solid var(--border); border-radius: 4px;
+  background: var(--bg2); position: relative;
+  animation: fadeIn .3s ease;
+}
+@keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+.step-icon {
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; flex-shrink: 0; font-family: var(--mono);
+  border: 1px solid;
+}
+.step-icon.running { border-color: var(--amber); color: var(--amber); animation: spin 1s linear infinite; }
+.step-icon.done    { border-color: var(--green); color: var(--green); }
+.step-icon.fail    { border-color: var(--red);   color: var(--red); }
+.step-icon.wait    { border-color: var(--dim);   color: var(--dim); }
+@keyframes spin { to{transform:rotate(360deg)} }
+.step-info { flex: 1; min-width: 0; }
+.step-name { font-family: var(--head); font-size: 10px; letter-spacing: 2px; color: var(--textdim); }
+.step-detail { font-size: 13px; color: var(--text); margin-top: 2px; }
+.step-meta { font-family: var(--mono); font-size: 10px; color: var(--textdim); margin-top: 4px; }
+.score-badge {
+  font-family: var(--mono); font-size: 22px; font-weight: 700;
+  padding: 4px 12px; border-radius: 4px; flex-shrink: 0;
+}
+
+/* Alert card */
+.alert-card {
+  border: 1px solid var(--border2); border-radius: 4px;
+  background: var(--bg2); padding: 14px 16px; margin-bottom: 14px;
+}
+.alert-id { font-family: var(--mono); font-size: 10px; color: var(--dim); margin-bottom: 6px; }
+.alert-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+.alert-field label { font-size: 11px; color: var(--textdim); display: block; margin-bottom: 2px; }
+.alert-field span { font-family: var(--mono); font-size: 12px; color: var(--text); }
+
+/* HITL cards */
+.hitl-card {
+  border: 1px solid var(--border2); border-radius: 4px;
+  background: var(--bg2); padding: 14px 16px; margin-bottom: 10px;
+  animation: fadeIn .3s ease;
+}
+.hitl-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.hitl-agent { font-family: var(--head); font-size: 9px; letter-spacing: 2px; color: var(--blue); }
+.hitl-desc { font-size: 14px; color: var(--text); margin-top: 3px; line-height: 1.4; }
+.hitl-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.hitl-btn {
+  font-family: var(--mono); font-size: 10px; padding: 6px 14px;
+  border-radius: 3px; border: 1px solid; cursor: pointer; background: none;
+  transition: all .15s;
+}
+.hitl-approve { color: var(--green); border-color: var(--green); }
+.hitl-approve:hover { background: rgba(0,255,136,.15); }
+.hitl-reject  { color: var(--red);   border-color: var(--red); }
+.hitl-reject:hover  { background: rgba(255,51,51,.15); }
+.hitl-empty { text-align: center; padding: 40px; color: var(--textdim); font-family: var(--mono); font-size: 12px; }
+
+/* Audit log */
+.audit-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 8px 0; border-bottom: 1px solid rgba(26,58,80,.4);
+  font-family: var(--mono); font-size: 11px;
+  animation: fadeIn .2s ease;
+}
+.audit-ts { color: var(--dim); flex-shrink: 0; width: 70px; }
+.audit-actor { color: var(--blue); flex-shrink: 0; width: 100px; overflow: hidden; text-overflow: ellipsis; }
+.audit-action { color: var(--text); flex: 1; }
+.audit-ok   { color: var(--green); flex-shrink: 0; }
+.audit-fail { color: var(--red); flex-shrink: 0; }
+
+/* Scan history */
+.scan-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 14px; border-bottom: 1px solid rgba(26,58,80,.4);
+  cursor: pointer; transition: background .15s;
+}
+.scan-row:hover { background: var(--bg2); }
+.scan-ts { font-family: var(--mono); font-size: 10px; color: var(--dim); width: 56px; flex-shrink: 0; }
+.scan-src { font-size: 11px; color: var(--textdim); flex: 1; }
+.scan-count { font-family: var(--mono); font-size: 11px; }
+
+/* Right panel */
+.right-panel { padding: 0; }
+.metric-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border); }
+.metric {
+  background: var(--bg2); padding: 14px 16px; text-align: center;
+}
+.metric-val { font-family: var(--head); font-size: 26px; font-weight: 700; color: var(--green); }
+.metric-val.amber { color: var(--amber); }
+.metric-val.red   { color: var(--red); }
+.metric-lbl { font-size: 10px; color: var(--textdim); margin-top: 2px; letter-spacing: 1px; }
+
+.log-feed { padding: 0; }
+.log-entry {
+  padding: 7px 16px; border-bottom: 1px solid rgba(26,58,80,.3);
+  font-family: var(--mono); font-size: 10px; line-height: 1.5;
+  animation: slideIn .2s ease;
+}
+@keyframes slideIn { from{opacity:0;transform:translateX(8px)} to{opacity:1;transform:none} }
+.log-entry .lt { color: var(--dim); }
+.log-entry .lm { color: var(--text); }
+.log-entry.info .lm  { color: var(--text); }
+.log-entry.ok .lm    { color: var(--green); }
+.log-entry.warn .lm  { color: var(--amber); }
+.log-entry.error .lm { color: var(--red); }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+/* Empty state */
+.empty { text-align: center; padding: 50px 20px; color: var(--textdim); }
+.empty .e-icon { font-family: var(--head); font-size: 28px; color: var(--border2); margin-bottom: 10px; }
+.empty p { font-size: 12px; }
+
+/* Sector map visual */
+.sector-map {
+  display: grid; grid-template-columns: repeat(3,1fr); gap: 8px;
+  padding: 16px;
+}
+.map-cell {
+  border: 1px solid var(--border); border-radius: 4px; padding: 10px 8px;
+  text-align: center; cursor: pointer; transition: all .2s;
+  background: var(--bg2);
+}
+.map-cell:hover { border-color: var(--green); }
+.map-cell.hot { border-color: var(--red); background: rgba(255,51,51,.05); }
+.map-cell.warn { border-color: var(--amber); }
+.map-cell-name { font-family: var(--head); font-size: 9px; letter-spacing: 1px; color: var(--textdim); }
+.map-cell-score { font-family: var(--mono); font-size: 20px; font-weight: 700; margin: 4px 0; }
+.map-cell-status { font-size: 10px; }
+
+.input-row { display: flex; gap: 8px; margin-bottom: 14px; align-items: center; flex-wrap: wrap; }
+.input-row label { font-size: 12px; color: var(--textdim); flex-shrink: 0; }
+select, input[type=text] {
+  background: var(--bg2); border: 1px solid var(--border2); border-radius: 3px;
+  color: var(--text); font-family: var(--mono); font-size: 11px; padding: 6px 10px;
+}
+select:focus, input:focus { outline: none; border-color: var(--green); }
+
+.loading { text-align: center; padding: 30px; color: var(--amber); font-family: var(--mono); font-size: 12px; }
+.loading::after { content: '...'; animation: dots 1.2s steps(3,end) infinite; }
+@keyframes dots { 0%{content:'.'} 33%{content:'..'} 66%{content:'...'} }
+
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">SENTINEL<span>Indian Army Surveillance System</span></div>
+  </div>
+  <div class="sys-status">
+    <div class="status-pill"><div class="dot" id="server-dot"></div><span id="server-status">Connecting...</span></div>
+    <div class="status-pill"><div class="dot amber" id="db-dot"></div><span id="db-status">BigQuery</span></div>
+    <div class="time-display" id="clock"></div>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- LEFT: Sectors -->
+  <div class="panel">
+    <div class="panel-title">Sector Status</div>
+    <div id="sector-list"></div>
+    <div style="padding:12px 16px;border-top:1px solid var(--border);margin-top:auto">
+      <button class="btn btn-amber" style="width:100%" onclick="triggerFullScan()">Scan All Sectors</button>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main-panel">
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('pipeline')">Pipeline</button>
+      <button class="tab" onclick="switchTab('hitl')">HITL Approval</button>
+      <button class="tab" onclick="switchTab('audit')">Audit Trail</button>
+      <button class="tab" onclick="switchTab('scans')">Vision Scans</button>
+    </div>
+
+    <!-- PIPELINE TAB -->
+    <div class="tab-content active" id="tab-pipeline">
+      <div class="trigger-row">
+        <button class="btn btn-red" onclick="fireDemoAlert()" id="demo-btn">Fire Demo Alert — SECTOR-7</button>
+        <button class="btn btn-green" onclick="fireManualAlert()" id="manual-btn">Fire Manual Alert</button>
+        <button class="btn btn-amber" onclick="loadPending()">Refresh HITL Queue</button>
+      </div>
+
+      <div class="input-row" id="manual-row" style="display:none">
+        <label>Sector</label>
+        <select id="manual-sector">
+          <option>SECTOR-1</option><option>SECTOR-2</option>
+          <option>SECTOR-4</option><option>SECTOR-5</option>
+          <option selected>SECTOR-7</option><option>SECTOR-9</option>
+        </select>
+        <label>Type</label>
+        <select id="manual-type">
+          <option value="perimeter_breach">Perimeter Breach</option>
+          <option value="drone_sighting">Drone Sighting</option>
+          <option value="manual_report">Manual Report</option>
+          <option value="seismic_activity">Seismic Activity</option>
+        </select>
+        <button class="btn btn-green" onclick="submitManualAlert()">Submit</button>
+      </div>
+
+      <div id="pipeline-display">
+        <div class="empty">
+          <div class="e-icon">▶</div>
+          <p>Fire an alert to start the pipeline</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- HITL TAB -->
+    <div class="tab-content" id="tab-hitl">
+      <div class="trigger-row">
+        <button class="btn btn-green" onclick="loadPending()">Refresh Queue</button>
+      </div>
+      <div id="hitl-list"><div class="loading">Loading pending actions</div></div>
+    </div>
+
+    <!-- AUDIT TAB -->
+    <div class="tab-content" id="tab-audit">
+      <div class="input-row">
+        <label>Alert ID</label>
+        <input type="text" id="audit-alert-id" placeholder="paste alert_id here" style="flex:1;min-width:200px">
+        <button class="btn btn-green" onclick="loadAudit()">Load Trail</button>
+      </div>
+      <div id="audit-list">
+        <div class="empty"><div class="e-icon">◎</div><p>Enter an alert ID to view its audit trail</p></div>
+      </div>
+    </div>
+
+    <!-- SCANS TAB -->
+    <div class="tab-content" id="tab-scans">
+      <div class="input-row">
+        <label>Sector</label>
+        <select id="scan-sector-select">
+          <option>SECTOR-1</option><option>SECTOR-2</option>
+          <option>SECTOR-4</option><option>SECTOR-5</option>
+          <option selected>SECTOR-7</option><option>SECTOR-9</option>
+        </select>
+        <button class="btn btn-green" onclick="loadScans()">Load History</button>
+      </div>
+      <div id="scan-list">
+        <div class="empty"><div class="e-icon">◈</div><p>Select a sector to view vision scan history</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Metrics + Live log -->
+  <div class="panel right-panel">
+    <div class="panel-title">Live Metrics</div>
+    <div class="metric-row">
+      <div class="metric">
+        <div class="metric-val" id="m-alerts">—</div>
+        <div class="metric-lbl">Total Alerts</div>
+      </div>
+      <div class="metric">
+        <div class="metric-val amber" id="m-pending">—</div>
+        <div class="metric-lbl">Pending HITL</div>
+      </div>
+      <div class="metric">
+        <div class="metric-val" id="m-score">—</div>
+        <div class="metric-lbl">Last Score</div>
+      </div>
+      <div class="metric">
+        <div class="metric-val" id="m-severity">—</div>
+        <div class="metric-lbl">Severity</div>
+      </div>
+    </div>
+
+    <div class="sector-map" id="sector-map"></div>
+
+    <div class="panel-title" style="margin-top:0">Activity Log</div>
+    <div class="log-feed" id="log-feed"></div>
+  </div>
+
+</div>
+
+<script>
+const API   = 'http://localhost:8000';
+const KEY   = 'commander-secret-key-123';
+const HDR   = { 'Content-Type': 'application/json', 'x-api-key': KEY };
+const SECS  = ['SECTOR-1','SECTOR-2','SECTOR-4','SECTOR-5','SECTOR-7','SECTOR-9'];
+const COORDS = {'SECTOR-1':'34.15,74.85','SECTOR-2':'34.20,74.90','SECTOR-4':'34.08,74.70','SECTOR-5':'34.12,74.80','SECTOR-7':'34.05,74.36','SECTOR-9':'34.18,74.95'};
+
+let lastAlertId = null;
+let sectorScores = {};
+let logCount = 0;
+
+// ── Clock ──────────────────────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('en-IN',{hour12:false}) + ' IST';
+}
+setInterval(updateClock, 1000); updateClock();
+
+// ── Log ───────────────────────────────────────────────────────────────────
+function log(msg, type='info') {
+  const feed = document.getElementById('log-feed');
+  const ts = new Date().toLocaleTimeString('en-IN',{hour12:false});
+  const el = document.createElement('div');
+  el.className = `log-entry ${type}`;
+  el.innerHTML = `<span class="lt">${ts}</span> <span class="lm">${msg}</span>`;
+  feed.insertBefore(el, feed.firstChild);
+  if (feed.children.length > 40) feed.lastChild.remove();
+  logCount++;
+}
+
+// ── Fetch helpers ─────────────────────────────────────────────────────────
+async function apiFetch(path, opts={}) {
+  try {
+    const res = await fetch(API + path, {
+      headers: HDR,
+      ...opts,
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch(e) {
+    log(`API error: ${path} — ${e.message}`, 'error');
+    throw e;
+  }
+}
+
+// ── Health check ──────────────────────────────────────────────────────────
+async function checkHealth() {
+  try {
+    const d = await apiFetch('/');
+    document.getElementById('server-dot').className = 'dot';
+    document.getElementById('server-status').textContent = `v${d.version} online`;
+    document.getElementById('db-dot').className = 'dot';
+    log('Server connected', 'ok');
+    loadPending();
+    renderSectors();
+  } catch(e) {
+    document.getElementById('server-dot').className = 'dot red';
+    document.getElementById('server-status').textContent = 'Server offline';
+    log('Cannot reach server at ' + API, 'error');
+  }
+}
+
+// ── Sectors ───────────────────────────────────────────────────────────────
+function renderSectors() {
+  const list = document.getElementById('sector-list');
+  list.innerHTML = SECS.map(s => {
+    const score = sectorScores[s];
+    let badge = '<span class="sector-badge badge-clear">CLEAR</span>';
+    if (score >= 8) badge = '<span class="sector-badge badge-alert">CRITICAL</span>';
+    else if (score >= 6) badge = '<span class="sector-badge badge-warn">HIGH</span>';
+    else if (score >= 4) badge = '<span class="sector-badge badge-warn">MEDIUM</span>';
+    return `<button class="sector-btn" onclick="selectSector('${s}')">
+      <div>
+        <div class="sector-name">${s}</div>
+        <div class="sector-coords">${COORDS[s]}</div>
+      </div>
+      ${badge}
+    </button>`;
+  }).join('');
+
+  // Sector map
+  const map = document.getElementById('sector-map');
+  map.innerHTML = SECS.map(s => {
+    const score = sectorScores[s] || 0;
+    const cls = score>=8?'hot':score>=5?'warn':'';
+    const col = score>=8?'#ff3333':score>=5?'#ffaa00':'#00ff88';
+    return `<div class="map-cell ${cls}" onclick="selectSector('${s}')">
+      <div class="map-cell-name">${s}</div>
+      <div class="map-cell-score" style="color:${col}">${score||'—'}</div>
+      <div class="map-cell-status" style="color:${col}">${score>=8?'CRITICAL':score>=5?'HIGH':score>0?'LOW':'IDLE'}</div>
+    </div>`;
+  }).join('');
+}
+
+function selectSector(s) {
+  document.querySelectorAll('.sector-btn').forEach(b => b.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  document.getElementById('scan-sector-select').value = s;
+  document.getElementById('manual-sector').value = s;
+  switchTab('scans');
+  loadScans();
+  log(`Selected ${s}`, 'info');
+}
+
+// ── Pipeline ──────────────────────────────────────────────────────────────
+async function fireDemoAlert() {
+  document.getElementById('demo-btn').disabled = true;
+  document.getElementById('pipeline-display').innerHTML = '<div class="loading">Firing alert</div>';
+  log('Firing demo alert — SECTOR-7', 'warn');
+
+  try {
+    const d = await apiFetch('/api/v1/demo/trigger', { method: 'POST' });
+    lastAlertId = d.alert_id;
+    document.getElementById('audit-alert-id').value = lastAlertId;
+    renderPipeline(d);
+    updateMetrics(d);
+    log(`Alert fired: ${lastAlertId.slice(0,12)}...`, 'ok');
+    log(`Threat score: ${d.pipeline_result?.threat_score || '?'}`, d.pipeline_result?.threat_score >= 8 ? 'error' : 'warn');
+    loadPending();
+  } catch(e) {
+    document.getElementById('pipeline-display').innerHTML = '<div class="empty"><p style="color:var(--red)">Error — is the server running?</p></div>';
+  }
+  document.getElementById('demo-btn').disabled = false;
+}
+
+function fireManualAlert() {
+  const row = document.getElementById('manual-row');
+  row.style.display = row.style.display === 'none' ? 'flex' : 'none';
+}
+
+async function submitManualAlert() {
+  const sector = document.getElementById('manual-sector').value;
+  const alert_type = document.getElementById('manual-type').value;
+  const coords = COORDS[sector].split(',');
+  document.getElementById('pipeline-display').innerHTML = '<div class="loading">Processing alert</div>';
+  log(`Manual alert: ${alert_type} in ${sector}`, 'warn');
+
+  try {
+    const d = await apiFetch('/api/v1/alert', {
+      method: 'POST',
+      body: JSON.stringify({ alert_type, sector, latitude: parseFloat(coords[0]), longitude: parseFloat(coords[1]) }),
+    });
+    lastAlertId = d.alert_id;
+    document.getElementById('audit-alert-id').value = lastAlertId;
+    const status = await apiFetch(`/api/v1/status/${lastAlertId}`);
+    renderPipelineFromStatus(status, d);
+    loadPending();
+    document.getElementById('manual-row').style.display = 'none';
+  } catch(e) {}
+}
+
+function renderPipeline(data) {
+  const r = data.pipeline_result || {};
+  const steps = r.pipeline_steps || [];
+  const score = r.threat_score;
+  const sev = r.severity || '';
+  const scoreCol = score>=8?'var(--red)':score>=5?'var(--amber)':'var(--green)';
+
+  if (score) sectorScores['SECTOR-7'] = score;
+  renderSectors();
+
+  let html = `<div class="alert-card">
+    <div class="alert-id">ALERT ID: ${data.alert_id}</div>
+    <div class="alert-grid">
+      <div class="alert-field"><label>SECTOR</label><span>SECTOR-7</span></div>
+      <div class="alert-field"><label>TYPE</label><span>PERIMETER BREACH</span></div>
+      <div class="alert-field"><label>STATUS</label><span style="color:var(--amber)">${(r.status||'').toUpperCase()}</span></div>
+    </div>
+  </div>
+  <div class="pipeline-wrap">`;
+
+  const agentDefs = [
+    { id:'intel_agent',   name:'INTEL AGENT',   icon:'◆' },
+    { id:'patrol_agent',  name:'PATROL AGENT',  icon:'▲' },
+    { id:'comms_agent',   name:'COMMS AGENT',   icon:'◉' },
+  ];
+
+  agentDefs.forEach(def => {
+    const step = steps.find(s => s.agent === def.id);
+    const status = step ? step.status : 'pending';
+    const iconCls = status === 'completed' ? 'done' : status === 'failed' ? 'fail' : 'wait';
+
+    let detail = 'Waiting...';
+    let meta = '';
+    if (step && step.output) {
+      if (def.id === 'intel_agent') {
+        detail = `Threat Score: <span style="color:${scoreCol};font-size:18px;font-weight:700">${step.output.threat_score}</span>/10 &nbsp; Severity: <span style="color:${scoreCol}">${(step.output.severity||'').toUpperCase()}</span>`;
+        meta = step.output.reasoning ? step.output.reasoning.slice(0,100)+'...' : '';
+      } else {
+        detail = step.output.description || (step.output.action_created ? 'Action created — awaiting approval' : 'No change required');
+        meta = step.output.action_id ? `Action ID: ${step.output.action_id.slice(0,16)}...` : '';
+      }
+    }
+
+    html += `<div class="pipeline-step">
+      <div class="step-icon ${iconCls}">${def.icon}</div>
+      <div class="step-info">
+        <div class="step-name">${def.name}</div>
+        <div class="step-detail">${detail}</div>
+        ${meta ? `<div class="step-meta">${meta}</div>` : ''}
+      </div>
+    </div>`;
+  });
+
+  html += `</div>
+  <button class="btn btn-amber" onclick="loadAudit()" style="margin-top:4px">View Audit Trail</button>
+  &nbsp;
+  <button class="btn btn-green" onclick="switchTab('hitl');loadPending()" style="margin-top:4px">Review HITL Queue</button>`;
+
+  document.getElementById('pipeline-display').innerHTML = html;
+}
+
+function renderPipelineFromStatus(status, orig) {
+  renderPipeline({ alert_id: status.alert_id, pipeline_result: { status: status.status, threat_score: status.threat_score, severity: status.severity, pipeline_steps: [] } });
+}
+
+function updateMetrics(data) {
+  const r = data.pipeline_result || {};
+  if (r.threat_score) {
+    document.getElementById('m-score').textContent = r.threat_score;
+    document.getElementById('m-score').className = 'metric-val' + (r.threat_score>=8?' red':r.threat_score>=5?' amber':'');
+  }
+  if (r.severity) {
+    document.getElementById('m-severity').textContent = r.severity.toUpperCase().slice(0,4);
+    document.getElementById('m-severity').className = 'metric-val' + (r.severity==='critical'?' red':r.severity==='high'?' amber':'');
+  }
+}
+
+// ── HITL ──────────────────────────────────────────────────────────────────
+async function loadPending() {
+  try {
+    const d = await apiFetch('/api/v1/hitl/pending');
+    const count = d.count || 0;
+    document.getElementById('m-pending').textContent = count;
+    document.getElementById('m-pending').className = 'metric-val' + (count>0?' amber':'');
+
+    const list = document.getElementById('hitl-list');
+    if (!count) {
+      list.innerHTML = '<div class="hitl-empty">[ NO PENDING ACTIONS ]<br><br>All clear. Commander has no items to review.</div>';
+      return;
+    }
+    list.innerHTML = (d.actions||[]).map(a => `
+      <div class="hitl-card" id="hitl-${a.id}">
+        <div class="hitl-head">
+          <div>
+            <div class="hitl-agent">${a.agent.toUpperCase()} — ${a.action_type.toUpperCase()}</div>
+            <div class="hitl-desc">${a.description}</div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:6px">
+              ID: ${a.id.slice(0,20)}... &nbsp;|&nbsp; ${new Date(a.created_at).toLocaleTimeString()}
+            </div>
+          </div>
+          <div class="hitl-actions">
+            <button class="hitl-btn hitl-approve" onclick="approveAction('${a.id}')">APPROVE</button>
+            <button class="hitl-btn hitl-reject"  onclick="rejectAction('${a.id}')">REJECT</button>
+          </div>
+        </div>
+      </div>`).join('');
+  } catch(e) {}
+}
+
+async function approveAction(id) {
+  log(`Approving action ${id.slice(0,12)}...`, 'warn');
+  try {
+    await apiFetch(`/api/v1/hitl/approve/${id}`, { method: 'PUT' });
+    document.getElementById(`hitl-${id}`)?.remove();
+    log(`Action approved — MCP executed`, 'ok');
+    loadPending();
+    if (lastAlertId) loadAuditQuiet(lastAlertId);
+  } catch(e) {}
+}
+
+async function rejectAction(id) {
+  log(`Rejecting action ${id.slice(0,12)}...`, 'error');
+  try {
+    await apiFetch(`/api/v1/hitl/reject/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ reason: 'Rejected via dashboard' }),
+    });
+    document.getElementById(`hitl-${id}`)?.remove();
+    log(`Action rejected`, 'warn');
+    loadPending();
+  } catch(e) {}
+}
+
+// ── Audit ─────────────────────────────────────────────────────────────────
+async function loadAudit() {
+  const id = document.getElementById('audit-alert-id').value.trim();
+  if (!id) { log('Enter an alert ID first', 'warn'); return; }
+  switchTab('audit');
+  await loadAuditQuiet(id);
+}
+
+async function loadAuditQuiet(id) {
+  try {
+    const d = await apiFetch(`/api/v1/audit/${id}`);
+    document.getElementById('m-alerts').textContent = d.events?.length || 0;
+    const list = document.getElementById('audit-list');
+    list.innerHTML = (d.events||[]).reverse().map(e => {
+      const ts = new Date(e.timestamp).toLocaleTimeString('en-IN',{hour12:false});
+      return `<div class="audit-row">
+        <span class="audit-ts">${ts}</span>
+        <span class="audit-actor">${e.actor}</span>
+        <span class="audit-action">${e.action}${e.detail?` — <span style="color:var(--textdim)">${e.detail.slice(0,60)}</span>`:''}</span>
+        <span class="${e.success?'audit-ok':'audit-fail'}">${e.success?'OK':'FAIL'}</span>
+      </div>`;
+    }).join('');
+  } catch(e) {}
+}
+
+// ── Scans ─────────────────────────────────────────────────────────────────
+async function loadScans() {
+  const sector = document.getElementById('scan-sector-select').value;
+  log(`Loading scan history for ${sector}`, 'info');
+  try {
+    const d = await apiFetch(`/api/v1/scan/history/${sector}?limit=10`);
+    const list = document.getElementById('scan-list');
+    if (!d.count) {
+      list.innerHTML = '<div class="empty"><div class="e-icon">◈</div><p>No scans yet for this sector</p></div>';
+      return;
+    }
+    list.innerHTML = (d.scans||[]).map(s => {
+      const ts = new Date(s.scanned_at).toLocaleTimeString('en-IN',{hour12:false});
+      const col = s.detected ? 'var(--red)' : 'var(--green)';
+      return `<div class="scan-row">
+        <span class="scan-ts">${ts}</span>
+        <div style="flex:1">
+          <div style="font-size:12px;color:var(--text)">${s.assessment?.slice(0,60)||'No assessment'}...</div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:2px">${s.source} | zoom=${s.zoom}</div>
+        </div>
+        <span class="scan-count" style="color:${col}">${s.detected?s.anomalies+' ANOMALIES':'CLEAR'}</span>
+      </div>`;
+    }).join('');
+
+    if (d.scans?.[0]?.sector) {
+      const latest = d.scans[0];
+      if (latest.anomalies > 0) sectorScores[sector] = 8;
+      renderSectors();
+    }
+  } catch(e) {}
+}
+
+async function triggerFullScan() {
+  log('Triggering full sector scan...', 'warn');
+  try {
+    await apiFetch('/api/v1/scan/trigger-all', { method: 'POST' });
+    log('Full scan queued — running in background', 'ok');
+  } catch(e) {}
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.tab[onclick="switchTab('${name}')"]`).classList.add('active');
+  document.getElementById(`tab-${name}`).classList.add('active');
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────
+checkHealth();
+setInterval(loadPending, 15000);   // refresh HITL every 15s
+renderSectors();
+log('SENTINEL dashboard initialised', 'ok');
+</script>
+</body>
+</html>
