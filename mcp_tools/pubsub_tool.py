@@ -46,7 +46,7 @@ _sub_path   = None
 
 def _get_publisher():
     global _publisher, _topic_path
-    if _publisher is not None:
+    if _publisher is not None and _topic_path is not None:
         return _publisher, _topic_path
     try:
         from google.cloud import pubsub_v1
@@ -63,7 +63,7 @@ def _get_publisher():
 
 def _get_subscriber():
     global _subscriber, _sub_path
-    if _subscriber is not None:
+    if _subscriber is not None and _sub_path is not None:
         return _subscriber, _sub_path
     try:
         from google.cloud import pubsub_v1
