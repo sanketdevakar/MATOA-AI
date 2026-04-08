@@ -126,7 +126,11 @@ def get_alert(alert_id: str) -> dict:
     rows = _call_tool("get_alert_by_id", id=alert_id)
     if not rows:
         raise ValueError(f"Alert {alert_id} not found")
-    return rows[0] if isinstance(rows, list) else rows
+    row = rows[0] if isinstance(rows, list) else rows
+    if isinstance(row, str):
+        import json
+        row = json.loads(row)
+    return row
 
 
 def update_alert_status(alert_id: str, status: str):
@@ -199,7 +203,12 @@ def get_pending_action(action_id: str) -> dict:
     rows = _call_tool("get_pending_action_by_id", id=action_id)
     if not rows:
         raise ValueError(f"PendingAction {action_id} not found")
-    return rows[0] if isinstance(rows, list) else rows
+    # _call_tool may return list of dicts or a single string — handle both
+    row = rows[0] if isinstance(rows, list) else rows
+    if isinstance(row, str):
+        import json
+        row = json.loads(row)
+    return row
 
 
 def list_pending_actions(status: str = "pending") -> list:
