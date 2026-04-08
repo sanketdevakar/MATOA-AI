@@ -1,6 +1,6 @@
 """
 Primary Command Agent — BigQuery + Cloud Logging version
-Fix 7: Structured logging replaces all print() calls.
+
 """
 from datetime import datetime
 from db import bigquery_client as bq

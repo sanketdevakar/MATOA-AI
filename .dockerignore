@@ -1,0 +1,25 @@
+# Never include these in the Docker image
+.env
+.env.*
+!.env.example
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.git
+.gitignore
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+*.log
+*.ps1
+*.json
+# Dev-only files
+scripts/
+README.md
+toolbox.exe
+sa-keys.json

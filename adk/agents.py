@@ -1,9 +1,8 @@
 """
 Google ADK Agent Definitions — SENTINEL v3
 --------------------------------------------
-All agents use Gemini 2.0 Flash via Vertex AI.
-Fix 3: Removed LiteLlm/Anthropic dependency — all agents now use native Gemini.
-Fix 4: VertexAiSessionService (session state persists across restarts)
+All agents use Gemini 2.5 Flash via Vertex AI.
+
 """
 import os
 os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "1"
@@ -118,8 +117,10 @@ STEP 2: Decision:
 
 STEP 3 (score >= 5): Call gmaps_patrol_route:
   origin: nearest base (estimate from sector coords using gmaps_geocode if needed)
-  destination: alert lat/lon
-  waypoints: 1-2 perimeter checkpoints around the alert location
+  destination: a point 3-5 km from the alert location in the direction of the nearest border
+  waypoints: maximum 2 checkpoints, each within 5 km of the alert location
+  travel_mode: 'walking' for border patrol
+  Keep total patrol distance under 20 km.
   travel_mode: 'walking' for foot patrol
 
 STEP 4: Use route distance/duration in the action description.

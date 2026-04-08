@@ -1,6 +1,5 @@
 """
 Patrol Agent — BigQuery + Cloud Logging version
-Fix 7: Structured logging replaces all print() calls.
 """
 import json
 from datetime import datetime, timedelta, timezone

@@ -1,11 +1,7 @@
 """
 ADK Pipeline Runner — SENTINEL v3
 -------------------------------------
-Fix 4: VertexAiSessionService replaces InMemorySessionService.
-       Session state now persists in Vertex AI Agent Engine.
-Fix 5: Pub/Sub integration — run_pipeline publishes to topic,
-       worker subscribes and processes asynchronously.
-Fix 7: Structured Cloud Logging via utils.logger.
+
 """
 import os
 os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "1"

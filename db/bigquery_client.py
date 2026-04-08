@@ -60,8 +60,12 @@ def _call_tool(tool_name: str, **kwargs) -> Any:
             result = tool(**kwargs)
 
             if isinstance(result, str):
-                parsed = json.loads(result)
-                return parsed if isinstance(parsed, list) else [parsed]
+                try:
+                    parsed = json.loads(result)
+                    return parsed if isinstance(parsed, list) else [parsed]
+                except (json.JSONDecodeError, ValueError):
+                    # Non-JSON string means "no rows" message from Toolbox
+                    return []
 
             return result
 
@@ -136,7 +140,7 @@ def update_alert_threat(alert_id: str, threat_score: int, severity: str):
 
 def list_alerts(limit: int = 20) -> list:
     result = _call_tool("list_alerts", limit=limit)
-    return result if isinstance(result, list) else []
+    return [r for r in result if isinstance(r, dict)] if isinstance(result, list) else []
 
 
 # ── Historical Incidents ───────────────────────────────────────────────────────
@@ -144,8 +148,7 @@ def list_alerts(limit: int = 20) -> list:
 def get_sector_history(sector: str, days: int = 14, limit: int = 20) -> list:
     result = _call_tool("get_sector_history",
         sector=sector, days_back=days, limit=limit)
-    return result if isinstance(result, list) else []
-
+    return [r for r in result if isinstance(r, dict)] if isinstance(result, list) else []
 
 def insert_historical_incident(
     sector: str,
@@ -201,7 +204,7 @@ def get_pending_action(action_id: str) -> dict:
 
 def list_pending_actions(status: str = "pending") -> list:
     result = _call_tool("list_pending_actions", status=status)
-    return result if isinstance(result, list) else []
+    return [r for r in result if isinstance(r, dict)] if isinstance(result, list) else []
 
 
 def approve_pending_action(action_id: str, decided_by: str = "commander"):
@@ -326,7 +329,7 @@ def insert_audit_log(
 
 def get_audit_trail(alert_id: str) -> list:
     result = _call_tool("get_audit_trail", alert_id=alert_id)
-    return result if isinstance(result, list) else []
+    return [r for r in result if isinstance(r, dict)] if isinstance(result, list) else []
 
 
 # ── Vision Scans ───────────────────────────────────────────────────────────────
@@ -379,16 +382,15 @@ def get_sector_scan_history(sector: str, limit: int = 10) -> list:
     result = _call_tool("get_sector_scan_history", sector=sector, limit=limit)
     if not isinstance(result, list):
         return []
-    # Handle case where result might be list of JSON strings or dicts
     parsed_result = []
     for item in result:
-        if isinstance(item, str):
+        if isinstance(item, dict):
+            parsed_result.append(item)
+        elif isinstance(item, str):
             try:
                 parsed_result.append(json.loads(item))
-            except:
-                parsed_result.append(item)  # Keep as string if not JSON
-        else:
-            parsed_result.append(item)
+            except (json.JSONDecodeError, ValueError):
+                pass  # skip "no rows" strings
     return parsed_result
 
 
@@ -403,7 +405,7 @@ def get_alerts_count_since(date_str: str) -> int:
             try:
                 parsed = json.loads(item)
                 return parsed.get("count", 0) if isinstance(parsed, dict) else 0
-            except:
+            except (json.JSONDecodeError, ValueError):
                 return 0
         else:
             return int(item) if isinstance(item, (int, str)) else 0
@@ -423,8 +425,8 @@ def get_latest_scan_timestamp() -> str:
             try:
                 parsed = json.loads(item)
                 return parsed.get("latest_scan", "") if isinstance(parsed, dict) else ""
-            except:
-                return item  # Return the string as is
+            except (json.JSONDecodeError, ValueError):
+                return ""
         else:
             return str(item)
     elif isinstance(result, str):
@@ -437,15 +439,14 @@ def get_all_audit_logs(limit: int = 100) -> list:
     result = _call_tool("get_all_audit_logs", limit=limit)
     if not isinstance(result, list):
         return []
-    # Handle case where result might be list of JSON strings or dicts
     parsed_result = []
     for item in result:
-        if isinstance(item, str):
+        if isinstance(item, dict):
+            parsed_result.append(item)
+        elif isinstance(item, str):
             try:
                 parsed_result.append(json.loads(item))
-            except:
-                parsed_result.append(item)  # Keep as string if not JSON
-        else:
-            parsed_result.append(item)
+            except (json.JSONDecodeError, ValueError):
+                pass  # skip "no rows" strings
     return parsed_result
 

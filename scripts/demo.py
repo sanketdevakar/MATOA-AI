@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-SENTINEL v2.0 — Rich Terminal Demo
+SENTINEL v3.0 — Rich Terminal Demo
 -------------------------------------
 A visually compelling live demonstration for hackathon judges.
 Shows every agent step, BigQuery writes, HITL approval, and vision scan
@@ -27,9 +27,14 @@ from rich.text import Text
 from rich import box
 from rich.rule import Rule
 from rich.padding import Padding
+from utils.logger import get_logger
+from config import get_settings
+
+log = get_logger("demo")
+settings = get_settings()
 
 BASE = "http://localhost:8000"
-KEY  = "commander-secret-key-123"
+KEY  = settings.commander_api_key
 HDR  = {"x-api-key": KEY}
 
 console = Console()
@@ -74,6 +79,19 @@ def spin(label: str, seconds: float = 1.2):
         p.add_task("", total=None)
         time.sleep(seconds)
 
+# Clear old pending actions before demo starts
+def clear_pending():
+    try:
+        r = httpx.get(f"{BASE}/api/v1/hitl/pending", headers=HDR, timeout=None)
+        if r.status_code == 200 and r.content:
+            pending = r.json()
+            for a in pending.get("actions", []):
+                httpx.put(f"{BASE}/api/v1/hitl/reject/{a['id']}",
+                          json={"reason": "Cleared before demo"},
+                          headers=HDR)
+            log.info(f"Cleared {pending.get('count', 0)} old pending actions")
+    except Exception as e:
+        console.print(f"  [yellow]Warning: Could not clear pending actions: {e}[/yellow]")
 
 # ── Demo sections ──────────────────────────────────────────────────────────────
 
@@ -362,6 +380,7 @@ def main():
     banner()
 
     try:
+        clear_pending()
         show_health()
         time.sleep(0.5)
 

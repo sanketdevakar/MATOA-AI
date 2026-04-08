@@ -1,6 +1,6 @@
 """
 Intel Agent — BigQuery + Cloud Logging version
-Uses Gemini via Vertex AI instead of Anthropic.
+
 """
 import json
 from google import genai

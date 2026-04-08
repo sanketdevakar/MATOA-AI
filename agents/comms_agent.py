@@ -1,6 +1,6 @@
 """
 Comms Agent — BigQuery + Cloud Logging version
-Fix 7: Structured logging replaces all print() calls.
+
 """
 import json
 from db import bigquery_client as bq

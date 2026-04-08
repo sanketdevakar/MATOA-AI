@@ -6,8 +6,6 @@ Fetches map/satellite imagery for a sector using a 3-tier source chain:
   2. Google Maps Static (via google_maps_tool) — good quality, 5 APIs available
   3. OpenStreetMap tiles                       — always available, no key needed
 
-Fix applied: removed duplicate _fetch_google_static() call.
-All Google Maps calls now route through mcp/google_maps_tool.py exclusively.
 """
 
 import io

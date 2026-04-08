@@ -1,8 +1,6 @@
 """
 Calendar Tool — Google Calendar API via service account
 --------------------------------------------------------
-Replaces MCP URL approach with direct Google Calendar API calls.
-Uses the same service account key as GCS.
 """
 import uuid
 from datetime import datetime

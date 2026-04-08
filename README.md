@@ -223,6 +223,149 @@ Key dependencies include:
 
 See `requirements.txt` for complete list.
 
+## Docker & Cloud Run Deployment
+
+### Building the Docker Image
+
+A `Dockerfile` is included in the repository for containerization.
+
+```bash
+# Build locally (optional for testing)
+docker build -t sentinel:latest .
+
+# Run locally
+docker run -p 8080:8080 \
+  -e GCP_PROJECT_ID=your-project \
+  -e BQ_DATASET=sentinel_db \
+  -e GCS_BUCKET_NAME=sentinel-vision-scans \
+  -e GOOGLE_MAPS_API_KEY=your-key \
+  -e USE_PUBSUB=false \
+  sentinel:latest
+```
+
+### Deploying to Google Cloud Run
+
+#### Prerequisites
+
+1. **Google Cloud Project** with required APIs enabled:
+   ```powershell
+   gcloud services enable \
+     run.googleapis.com \
+     cloudbuild.googleapis.com \
+     artifactregistry.googleapis.com \
+     bigquery.googleapis.com \
+     storage.googleapis.com \
+     pubsub.googleapis.com \
+     aiplatform.googleapis.com
+   ```
+
+2. **Service Account** with permissions:
+   - `roles/bigquery.dataEditor` (BigQuery access)
+   - `roles/storage.objectAdmin` (Cloud Storage access)
+   - `roles/aiplatform.user` (Vertex AI access)
+   - `roles/pubsub.publisher` (if using Pub/Sub)
+
+#### Step 1: Build and Push Container Image
+
+```powershell
+$PROJECT_ID = "your-project-id"
+
+gcloud builds submit --tag gcr.io/$PROJECT_ID/sentinel
+```
+
+#### Step 2: Deploy to Cloud Run
+
+```powershell
+$PROJECT_ID = "your-project-id"
+$MAPS_KEY = "your-google-maps-api-key"
+$GCS_BUCKET = "sentinel-vision-scans"
+$SERVICE_ACCOUNT = "command-mind-service-account@$PROJECT_ID.iam.gserviceaccount.com"
+
+gcloud run deploy sentinel `
+  --image gcr.io/$PROJECT_ID/sentinel `
+  --platform managed `
+  --region asia-south1 `
+  --allow-unauthenticated `
+  --service-account $SERVICE_ACCOUNT `
+  --set-env-vars `
+GCP_PROJECT_ID=$PROJECT_ID,`
+BQ_DATASET=sentinel_db,`
+GCS_BUCKET_NAME=$GCS_BUCKET,`
+USE_PUBSUB=false,`
+GOOGLE_MAPS_API_KEY=$MAPS_KEY,`
+APP_ENV=production
+```
+
+#### Step 3: Get Your Service URL
+
+```powershell
+gcloud run services describe sentinel --platform managed --region asia-south1 --format="value(status.url)"
+```
+
+The output is your deployed app URL (e.g., `https://sentinel-abc123.run.app`).
+
+### Environment Variables for Production
+
+| Variable | Required | Example | Notes |
+|----------|----------|---------|-------|
+| `GCP_PROJECT_ID` | Yes | `commandmind` | Google Cloud project ID |
+| `BQ_DATASET` | Yes | `sentinel_db` | BigQuery dataset name |
+| `GCS_BUCKET_NAME` | Yes | `sentinel-vision-scans` | Cloud Storage bucket for images |
+| `GOOGLE_MAPS_API_KEY` | Yes | `AIza...` | Google Maps Platform API key |
+| `USE_PUBSUB` | No | `false` | Enable Pub/Sub async processing (default: false) |
+| `PUBSUB_TOPIC_ID` | Conditional | `sentinel-alerts` | Required if `USE_PUBSUB=true` |
+| `APP_ENV` | No | `production` | Set to `production` for Cloud Run |
+| `GEMINI_MODEL` | No | `gemini-2.0-flash` | AI model to use |
+
+### MCP Toolbox Deployment
+
+SENTINEL uses MCP Toolbox for BigQuery operations. You have two options:
+
+**Option 1: Deploy Toolbox separately (Recommended)**
+- Deploy MCP Toolbox as a separate Cloud Run service
+- Set `MCP_TOOLBOX_URL` to the toolbox service URL
+- Advantage: Decoupled services, easier scaling
+
+**Option 2: Refactor to use direct BigQuery client (Alternative)**
+- Modify `db/bigquery_client.py` to use `google-cloud-bigquery` directly
+- No separate Toolbox service needed
+- Advantage: Single Cloud Run deployment
+
+Current setup uses Option 1. If deploying Toolbox:
+
+```powershell
+# Set MCP Toolbox URL in Cloud Run
+gcloud run services update sentinel `
+  --region asia-south1 `
+  --update-env-vars MCP_TOOLBOX_URL=https://your-toolbox-service.run.app
+```
+
+### Troubleshooting Cloud Run
+
+**Check service logs:**
+```powershell
+gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=sentinel" \
+  --limit=50 --project=$PROJECT_ID --format="value(textPayload)" --order=asc
+```
+
+**Verify service account permissions:**
+```powershell
+$PROJECT_ID = "your-project-id"
+$SERVICE_ACCOUNT = "command-mind-service-account@$PROJECT_ID.iam.gserviceaccount.com"
+
+gcloud projects get-iam-policy $PROJECT_ID `
+  --flatten="bindings[].members" `
+  --filter="bindings.members:serviceAccount:$SERVICE_ACCOUNT"
+```
+
+**Update environment variables:**
+```powershell
+gcloud run services update sentinel `
+  --platform managed `
+  --region asia-south1 `
+  --update-env-vars USE_PUBSUB=true,PUBSUB_TOPIC_ID=sentinel-alerts
+```
+
 ## Development
 
 ### Running Tests

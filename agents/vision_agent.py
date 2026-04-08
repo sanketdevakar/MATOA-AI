@@ -1,9 +1,7 @@
 """
 Vision Agent — GCS + Cloud Logging version
 --------------------------------------------
-Fix 2: Uploads images to GCS, stores gs:// URI in BigQuery (not base64).
-Fix 7: Uses structured Cloud Logging instead of print().
-Updated: Switched from Anthropic to Gemini via Vertex AI.
+
 """
 import base64
 import json
