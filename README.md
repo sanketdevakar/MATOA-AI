@@ -6,6 +6,7 @@ SENTINEL is an advanced AI-powered multi-agent surveillance system designed for 
 
 ## Demo Video
 
+https://github.com/user-attachments/assets/a5630465-a752-412d-9c30-7260dea01338
 
 ## Overview
 
