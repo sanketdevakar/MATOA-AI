@@ -14,17 +14,19 @@ _service = None
 
 
 def _get_calendar_service():
-    """Lazy-init Google Calendar API client using service account."""
+    """Lazy-init Google Calendar API client using ADC (Cloud Run service account).
+    
+    """
     global _service
     if _service is not None:
         return _service
     try:
-        from google.oauth2 import service_account
+        import google.auth
         from googleapiclient.discovery import build
 
-        credentials = service_account.Credentials.from_service_account_file(
-            settings.google_application_credentials,
-            scopes=["https://www.googleapis.com/auth/calendar"],
+        credentials, _ = google.auth.default(
+            scopes=["https://www.googleapis.com/auth/calendar",
+                    "https://www.googleapis.com/auth/calendar.events",]
         )
         _service = build("calendar", "v3", credentials=credentials)
         log.info("Google Calendar API connected")

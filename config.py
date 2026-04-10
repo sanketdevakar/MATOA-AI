@@ -3,31 +3,41 @@ SENTINEL Configuration
 ------------------------
 All settings loaded from environment variables / .env file.
 """
-from functools import lru_cache
-from pydantic_settings import BaseSettings
+import os
+from pathlib import Path
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Always resolve .env relative to this file
+BASE_DIR = Path(__file__).resolve().parent
 
 
 class Settings(BaseSettings):
+    # pydantic-settings v2 syntax — replaces inner Config class
+    model_config = SettingsConfigDict(
+        env_file=str(BASE_DIR / ".env"),
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
 
-
-    # ── Gemini (for ADK Patrol + Comms agents) ───────────────
-    gemini_model: str = "gemini-2.0-flash"
+    # ── Gemini ───────────────────────────────────────────────
+    gemini_model: str = "gemini-2.5-flash"
 
     # ── Google Cloud ─────────────────────────────────────────
-    gcp_project_id:   str = "your-gcp-project-id"
+    gcp_project_id:   str = "commandmind"
     bq_dataset:       str = "sentinel_db"
     gcp_location:     str = "asia-south1"
     google_application_credentials: str = ""
     google_genai_use_vertexai: str = "1"
     google_calendar_id: str = ""
 
-    # ── MCP Toolbox (BigQuery gateway) ───────────────────────
-    mcp_toolbox_url: str = "http://localhost:5000"
+    # ── MCP Toolbox ──────────────────────────────────────────
+    mcp_toolbox_url: str = "https://sentinel-toolbox-vgqcztjqeq-el.a.run.app"
 
-    # ── Cloud Storage (images) ───────────────────────────────
+    # ── Cloud Storage ─────────────────────────────────────────
     gcs_bucket_name: str = "sentinel-vision-scans"
 
-    # ── Cloud Pub/Sub (async event bus) ──────────────────────
+    # ── Cloud Pub/Sub ─────────────────────────────────────────
     pubsub_topic_id:        str = "sentinel-alerts"
     pubsub_subscription_id: str = "sentinel-alerts-sub"
     use_pubsub:             bool = False
@@ -51,7 +61,7 @@ class Settings(BaseSettings):
     google_maps_api_key: str = ""
     mapbox_token:        str = ""
 
-    # ── Daily scan schedule (IST, 24h) ───────────────────────
+    # ── Daily scan schedule ───────────────────────────────────
     daily_scan_hour:   int = 5
     daily_scan_minute: int = 30
 
@@ -62,10 +72,16 @@ class Settings(BaseSettings):
         '"SECTOR-7":"34.05,74.36","SECTOR-9":"34.18,74.95"}'
     )
 
-    class Config:
-        env_file = ".env"
 
+# Manual singleton — no lru_cache so Cloud Run secrets are always read fresh
+_settings: Settings = None
 
-@lru_cache()
 def get_settings() -> Settings:
-    return Settings()
+    global _settings
+    if _settings is None:
+        # os.environ.get ensures Cloud Run injected secrets always win
+        env_override = {}
+        if os.environ.get("COMMANDER_API_KEY"):
+            env_override["commander_api_key"] = os.environ["COMMANDER_API_KEY"]
+        _settings = Settings(**env_override)
+    return _settings

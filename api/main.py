@@ -49,8 +49,13 @@ def shutdown():
     stop_scheduler()
 
 
-def verify_commander(x_api_key: str = Header(...)):
-    if x_api_key != settings.commander_api_key:
+def verify_commander(x_api_key: str = Header(..., alias="x-api-key")):
+    expected = (
+        os.environ.get("COMMANDER_API_KEY", "") or settings.commander_api_key
+    ).strip()  # 👈 guards against secret storage artifacts
+    if not expected:
+        raise HTTPException(status_code=500, detail="Commander key not configured.")
+    if x_api_key.strip() != expected:  # 👈 strip incoming too
         raise HTTPException(status_code=401, detail="Invalid commander API key.")
     return x_api_key
 

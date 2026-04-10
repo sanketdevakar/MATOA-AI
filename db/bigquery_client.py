@@ -17,22 +17,56 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
+import google.auth.transport.requests
+import google.oauth2.id_token
+
 from toolbox_core import ToolboxSyncClient
 from config import get_settings
 
 settings = get_settings()
-TOOLBOX_URL = settings.mcp_toolbox_url   # http://localhost:5000
+TOOLBOX_URL = settings.mcp_toolbox_url
 
 # ── Toolbox helpers ─────────────────────────────────────────────────────────────
+
+def _get_identity_token():
+    """
+    Fetch identity token for Cloud Run service-to-service auth.
+    Returns None for localhost — no auth needed in local dev.
+    """
+    if "localhost" in TOOLBOX_URL or "127.0.0.1" in TOOLBOX_URL:
+        return None
+    try:
+        auth_req = google.auth.transport.requests.Request()
+        return google.oauth2.id_token.fetch_id_token(auth_req, TOOLBOX_URL.rstrip("/"))
+    except Exception as e:
+        raise RuntimeError(f"Failed to fetch identity token for toolbox: {e}") from e
 
 # ── Toolbox client (singleton) ──────────────────────────────────────────────────
 
 _client: ToolboxSyncClient = None
+_client_created_at: float = 0.0
+
+# AFTER
+import time
 
 def _get_client() -> ToolboxSyncClient:
-    global _client
-    if _client is None:
-        _client = ToolboxSyncClient(TOOLBOX_URL.rstrip("/"))
+    global _client, _client_created_at
+    # Refresh client every 55 minutes (token expires in 60)
+    if _client is None or (time.time() - _client_created_at) > 3300:
+        token = _get_identity_token()
+        if _client is not None:
+            try:
+                _client.close()
+            except Exception:
+                pass
+        if token:
+            _client = ToolboxSyncClient(
+                TOOLBOX_URL.rstrip("/"),
+                client_headers={"Authorization": f"Bearer {token}"},
+            )
+        else:
+            _client = ToolboxSyncClient(TOOLBOX_URL.rstrip("/"))
+        _client_created_at = time.time()
     return _client
 
 def close_client():
@@ -458,4 +492,3 @@ def get_all_audit_logs(limit: int = 100) -> list:
             except (json.JSONDecodeError, ValueError):
                 pass  # skip "no rows" strings
     return parsed_result
-

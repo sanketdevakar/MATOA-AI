@@ -561,6 +561,9 @@ tools:
       - name: alert_id
         type: string
         description: Associated alert ID
+      - name: created_at
+        type: string
+        description: Timestamp of the patrol action in ISO format
       - name: sector
         type: string
         description: Sector name where patrol is deployed
