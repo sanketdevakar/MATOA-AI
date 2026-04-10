@@ -6,6 +6,7 @@ SENTINEL is an advanced AI-powered multi-agent surveillance system designed for 
 
 ## Demo Video
 
+https://github.com/user-attachments/assets/a5630465-a752-412d-9c30-7260dea01338
 
 ## Overview
 
@@ -282,7 +283,7 @@ gcloud builds submit --tag gcr.io/$PROJECT_ID/sentinel
 $PROJECT_ID = "your-project-id"
 $MAPS_KEY = "your-google-maps-api-key"
 $GCS_BUCKET = "sentinel-vision-scans"
-$SERVICE_ACCOUNT = "command-mind-service-account@$PROJECT_ID.iam.gserviceaccount.com"
+$SERVICE_ACCOUNT = "your-service-account"
 
 gcloud run deploy sentinel `
   --image gcr.io/$PROJECT_ID/sentinel `
@@ -354,7 +355,7 @@ gcloud logging read "resource.type=cloud_run_revision AND resource.labels.servic
 **Verify service account permissions:**
 ```powershell
 $PROJECT_ID = "your-project-id"
-$SERVICE_ACCOUNT = "command-mind-service-account@$PROJECT_ID.iam.gserviceaccount.com"
+$SERVICE_ACCOUNT = "your-service-account"
 
 gcloud projects get-iam-policy $PROJECT_ID `
   --flatten="bindings[].members" `
