@@ -27,7 +27,7 @@ logging.getLogger("asyncio").setLevel(logging.CRITICAL)
 settings = get_settings()
 log      = get_logger("adk_runner")
 
-APP_NAME = "sentinel"
+APP_NAME = os.environ.get("ADK_APP_NAME", "sentinel")
 
 
 def _build_session_service():
@@ -35,7 +35,7 @@ def _build_session_service():
     Fix 4: Use VertexAiSessionService in production for persistent sessions.
     Falls back to InMemorySessionService in development.
     """
-    if settings.app_env == "production":
+    if settings.app_env == "production" and os.environ.get("ADK_APP_NAME"):
         try:
             from google.adk.sessions import VertexAiSessionService
             svc = VertexAiSessionService(
