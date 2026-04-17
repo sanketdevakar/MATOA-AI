@@ -45,7 +45,7 @@ class Settings(BaseSettings):
     # ── App ──────────────────────────────────────────────────
     app_env:           str = "development"
     secret_key:        str = "dev-secret"
-    commander_api_key: str = ""
+    commander_api_key: str = "commander-secret-key-123"
 
     # ── MCP tool endpoints ───────────────────────────────────
     calendar_mcp_url: str = "https://gcal.mcp.claude.com/mcp"
